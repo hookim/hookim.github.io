@@ -176,21 +176,7 @@ case "login":
 로그인이 성공적으로 이뤄진 경우에는 세션을 설정하고 request에 이름을 저장해서 forwarding을 시켰다. 로그인 성공시에는 기본 페이지로 돌아가는데 이때 request attribute테이블에 저장된 name값을 읽어서 렌더링을 시킨다. 
 
 ### 로그인 뷰
-```jsp
-<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
-
-<%@ taglib prefix="c" uri="jakarta.tags.core" %>
-
-<!DOCTYPE html>
-	<% if (session.getAttribute("id") == null) { %>
-	    <a href="main.do?action=loginInit">로그인</a>
-	<% } else {%>
-		<div>
-			<span> ${param.name } 님 로그인 중</span> 
-			<a href="main.do?action=logout">로그아웃</a>
-		</div>	    
-	<% } %>	
-```
+<img width="787" alt="Screen Shot 2024-03-26 at 9 52 06 AM" src="https://github.com/hookim/hookim.github.io/assets/81621620/be919bf9-c965-4f84-b052-73b06522b652">
 위는 jsp 뷰 페이지다. 로그인에 성공한 경우와 성공하지 않은 경우 다른 페이지를 보여주기 위해서 조건부 렌더링을 쓴 코드이다. 
 `<% if ... %>` 태그를 활용하면 안에 자바 코드를 작성할 수 있다. 위 경우는 id라는 키값으로 세션이 설정되지 않았다면 로그인 페이지를 보여주도록 하고 그렇지 않다면 이름 정보와 로그아웃버튼을 보여준다. 
 
