@@ -1,0 +1,274 @@
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en"><generator uri="https://jekyllrb.com/" version="4.3.3">Jekyll</generator><link href="https://hookim.github.io//feed.xml" rel="self" type="application/atom+xml"/><link href="https://hookim.github.io//" rel="alternate" type="text/html" hreflang="en"/><updated>2024-03-26T09:59:34+09:00</updated><id>https://hookim.github.io//feed.xml</id><title type="html">hoodev 블로그</title><subtitle>A simple, whitespace theme for academics. Based on [*folio](https://github.com/bogoli/-folio) design. </subtitle><entry><title type="html">Servlet과 JSP를 활용한 MVC 구조</title><link href="https://hookim.github.io//blog/2024/servlet-review/" rel="alternate" type="text/html" title="Servlet과 JSP를 활용한 MVC 구조"/><published>2024-03-26T17:55:02+09:00</published><updated>2024-03-26T17:55:02+09:00</updated><id>https://hookim.github.io//blog/2024/servlet-review</id><content type="html" xml:base="https://hookim.github.io//blog/2024/servlet-review/"><![CDATA[<h2 id="개요">개요</h2> <p>서블릿과 JSP를 활용해서 차량등록 페이지를 만든다.</p> <h2 id="구조설명">구조설명</h2> <p><img src="https://github.com/hookim/hookim.github.io/assets/81621620/6bafb3be-0aed-478a-b645-fb3ade9e8930" alt="architect drawio"/> 전체적으로 위와 같은 구조이다.</p> <ol> <li>클라이언트는 웹서버에 요청을 한다. 만약 웹서버에 요청된 자원이 존재하면 그 파일을 읽어와서 전달한다. 만약 없다면 웹컨테이너로 전달한다.</li> <li>웹 컨테이너에 있는 메인 서블릿에서 작업을 처리한다.</li> <li>메인 서블릿은 서비스 클래스를 통해서 필요한 작업들을 처리한다. 서브 클래스 내부에서는 DAO를 사용한다.</li> <li>DAO에서 DBUtil 기능클래스를 활용해서 디비에 접근을 한다.</li> <li>DB와 소통할 때 DTO라는 클래스에 값을 담아 소통한다.</li> </ol> <h3 id="싱글톤-패턴">싱글톤 패턴</h3> <p>서비스, DAO 클래스는 싱글톤 패턴으로 구현했다. 싱글톤패턴은 생성자를 private하게 설정하고 getInstance를 public, static 메소드를 통해서 단 한개의 인스턴스만을 활용하도록 하는 구조이다.</p> <div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">class</span> <span class="nc">CarService</span> <span class="o">{</span>
+	
+	<span class="kd">private</span> <span class="kd">static</span> <span class="nc">CarService</span> <span class="n">instance</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+	<span class="kd">private</span> <span class="kd">static</span> <span class="nc">CarDao</span> <span class="n">carDao</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+	
+	<span class="kd">private</span> <span class="nf">CarService</span><span class="o">()</span> <span class="o">{</span>
+		<span class="n">carDao</span> <span class="o">=</span> <span class="nc">CarDao</span><span class="o">.</span><span class="na">getInstance</span><span class="o">();</span>
+	<span class="o">}</span>
+	
+	<span class="kd">public</span> <span class="kd">static</span> <span class="nc">CarService</span> <span class="nf">getInstance</span><span class="o">()</span> <span class="o">{</span>
+		<span class="k">if</span><span class="o">(</span><span class="n">instance</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+			<span class="n">instance</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">CarService</span><span class="o">();</span>
+		<span class="o">}</span>
+		
+		<span class="k">return</span> <span class="n">instance</span><span class="o">;</span>
+	<span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div> <p>외부에서 생성자를 통해 객체를 생성할 수 없고 오직 getInstance라는 메소드를 통해서만 생성해야 한다. 내부적으로는 instacne가 이미 생성됐는지 확인하고 있다면 기존에 있는 인스턴스를 리턴하는 형식이다.</p> <h2 id="코드-설명">코드 설명</h2> <h3 id="메인-서블릿">메인 서블릿</h3> <div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code>	<span class="kd">private</span> <span class="kt">void</span> <span class="nf">process</span><span class="o">(</span><span class="nc">HttpServletRequest</span> <span class="n">request</span><span class="o">,</span> <span class="nc">HttpServletResponse</span> <span class="n">response</span><span class="o">)</span> <span class="o">{</span>
+		<span class="k">try</span> <span class="o">{</span>
+			<span class="nc">String</span> <span class="n">action</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="na">getParameter</span><span class="o">(</span><span class="s">"action"</span><span class="o">);</span>
+			<span class="k">if</span><span class="o">(</span><span class="n">action</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+				<span class="n">forward</span><span class="o">(</span><span class="n">request</span><span class="o">,</span> <span class="n">response</span><span class="o">,</span> <span class="s">"./index.jsp"</span><span class="o">);</span>
+			<span class="o">}</span>
+			<span class="k">switch</span><span class="o">(</span><span class="n">action</span><span class="o">)</span> <span class="o">{</span>
+			<span class="k">case</span> <span class="s">"regist"</span><span class="o">:</span>
+        <span class="o">...</span>
+      <span class="o">}</span>
+    <span class="o">}</span>
+  <span class="o">}</span>
+</code></pre></div></div> <p>메인 서블릿의 핵심 코드이다. doGet, doPost는 내부적으로 process 메소드를 호출한다. 가장 먼저 하는 작업은 action 패러미터값을 읽는 것이다. <code class="language-plaintext highlighter-rouge">request.getParameter("action")</code>는 url 쿼리 스트링이나 body의 값을 읽어온다. 이 action 패러미터를 통해 어떤 종류의 요청인지 파악을 했다.</p> <p>맨처음 action이 <code class="language-plaintext highlighter-rouge">null</code>인 경우는 디폴트 처리를 한 것이다. <code class="language-plaintext highlighter-rouge">forward</code>를 하면 사용자에게 보이는 url을 변경하지 않고 원하는 요청 응답을 처리할 수 있다. 보안에 좋다.</p> <h3 id="리스트-가져오기">리스트 가져오기</h3> <div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">case</span> <span class="s">"list"</span><span class="o">:</span>
+    <span class="nc">ArrayList</span><span class="o">&lt;</span><span class="nc">Car</span><span class="o">&gt;</span> <span class="n">list</span> <span class="o">=</span> <span class="n">carService</span><span class="o">.</span><span class="na">carList</span><span class="o">();</span>
+    <span class="n">request</span><span class="o">.</span><span class="na">setAttribute</span><span class="o">(</span><span class="s">"list"</span><span class="o">,</span> <span class="n">list</span><span class="o">);</span>
+    <span class="n">forward</span><span class="o">(</span><span class="n">request</span><span class="o">,</span> <span class="n">response</span><span class="o">,</span> <span class="s">"./car/list.jsp"</span><span class="o">);</span>
+    <span class="k">break</span><span class="o">;</span>
+</code></pre></div></div> <p>리스트는 내부적으로 <code class="language-plaintext highlighter-rouge">carService</code>인스턴스를 활용한다. 해당 인스턴스는 결국 DB까지 도착해서 원하는 값을 가져와 리스트 형태로 응답한다.</p> <div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kd">public</span> <span class="nc">ArrayList</span> <span class="nf">carList</span><span class="o">()</span> <span class="o">{</span>
+  <span class="k">return</span> <span class="n">carDao</span><span class="o">.</span><span class="na">carList</span><span class="o">();</span>
+  
+<span class="o">}</span>
+</code></pre></div></div> <p>위 코드는 Service 클래스 인스턴스 내부이다. 내부적으로 carDao를 호출하고 있다.</p> <div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code>	<span class="kd">public</span> <span class="nc">ArrayList</span> <span class="nf">carList</span><span class="o">()</span> <span class="o">{</span>
+		<span class="nc">ArrayList</span><span class="o">&lt;</span><span class="nc">Car</span><span class="o">&gt;</span> <span class="n">list</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">ArrayList</span><span class="o">&lt;&gt;();</span>
+		<span class="k">try</span> <span class="o">{</span>
+			<span class="nc">Connection</span> <span class="n">conn</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="na">getConnection</span><span class="o">();</span>
+			<span class="nc">String</span> <span class="n">sql</span> <span class="o">=</span> <span class="s">"select * from cars"</span><span class="o">;</span>
+			<span class="nc">PreparedStatement</span> <span class="n">stmt</span><span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="na">prepareStatement</span><span class="o">(</span><span class="n">sql</span><span class="o">);</span>
+			
+			<span class="nc">ResultSet</span> <span class="n">rs</span> <span class="o">=</span> <span class="n">stmt</span><span class="o">.</span><span class="na">executeQuery</span><span class="o">();</span>
+			<span class="k">while</span><span class="o">(</span><span class="n">rs</span><span class="o">.</span><span class="na">next</span><span class="o">())</span> <span class="o">{</span>
+				<span class="nc">Car</span> <span class="n">car</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Car</span><span class="o">();</span>
+				<span class="n">car</span><span class="o">.</span><span class="na">setBrand</span><span class="o">(</span><span class="n">rs</span><span class="o">.</span><span class="na">getString</span><span class="o">(</span><span class="s">"brand"</span><span class="o">));</span>
+				<span class="n">car</span><span class="o">.</span><span class="na">setModel</span><span class="o">(</span><span class="n">rs</span><span class="o">.</span><span class="na">getString</span><span class="o">(</span><span class="s">"model"</span><span class="o">));</span>
+				<span class="n">car</span><span class="o">.</span><span class="na">setNumber</span><span class="o">(</span><span class="n">rs</span><span class="o">.</span><span class="na">getString</span><span class="o">(</span><span class="s">"number"</span><span class="o">));</span>
+				<span class="n">car</span><span class="o">.</span><span class="na">setSize</span><span class="o">(</span><span class="n">rs</span><span class="o">.</span><span class="na">getString</span><span class="o">(</span><span class="s">"size"</span><span class="o">));</span>
+				<span class="n">car</span><span class="o">.</span><span class="na">setPrice</span><span class="o">(</span><span class="n">rs</span><span class="o">.</span><span class="na">getInt</span><span class="o">(</span><span class="s">"price"</span><span class="o">));</span>
+				
+				<span class="n">list</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="n">car</span><span class="o">);</span>
+			<span class="o">}</span>
+			
+			<span class="k">return</span> <span class="n">list</span><span class="o">;</span>
+		<span class="o">}</span>
+		<span class="k">catch</span><span class="o">(</span><span class="nc">Exception</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+			<span class="n">e</span><span class="o">.</span><span class="na">printStackTrace</span><span class="o">();</span>
+			<span class="k">return</span> <span class="kc">null</span><span class="o">;</span>
+		<span class="o">}</span>
+		<span class="k">finally</span> <span class="o">{</span>
+			<span class="n">db</span><span class="o">.</span><span class="na">close</span><span class="o">();</span>
+			
+		<span class="o">}</span>
+	<span class="o">}</span>
+</code></pre></div></div> <p>위 코드는 <code class="language-plaintext highlighter-rouge">carDao</code>내부 코드이다. 여기서 실제 DB에 접근하는 코드들이 나온다. prepared statement를 사용해서 sql injection을 방지할 수 있다. db 접근 부분이기 때문에 try-catch문을 활용해서 오류처리도 철저하게 진행했다. 값을 성공적으로 가져오면 <code class="language-plaintext highlighter-rouge">Car</code> DTO에 값을 집어넣어서 다시 리턴해준다.</p> <p>상세보기, 수정, 삭제의 경우도 다음과 같은 구조를 갖는다. 서블릿에서 서비스를 호출하고 DAO를 호출하고 DB에 접근해서 그 결과를 다시 역으로 리턴하는 과정이다.</p> <h3 id="수정하기-뷰">수정하기 뷰</h3> <div class="language-html highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  <span class="nt">&lt;body&gt;</span>
+    <span class="nt">&lt;nav&gt;</span>
+      <span class="nt">&lt;h1&gt;</span>차량 수정 페이지<span class="nt">&lt;/h1&gt;</span>
+    <span class="nt">&lt;/nav&gt;</span>
+    <span class="nt">&lt;form</span> <span class="na">action=</span><span class="s">"main.do?action=update"</span> <span class="na">method=</span><span class="s">"post"</span><span class="nt">&gt;</span>
+      <span class="nt">&lt;fieldset&gt;</span>
+        <span class="nt">&lt;label&gt;</span> 차 번호 <span class="nt">&lt;input</span> <span class="na">type=</span><span class="s">"text"</span> <span class="na">name=</span><span class="s">"number"</span> <span class="na">value=</span><span class="s">"${number }"</span> <span class="na">readonly</span><span class="nt">&gt;&lt;/label&gt;</span> 
+        <span class="nt">&lt;br&gt;</span> 
+        <span class="nt">&lt;label&gt;</span> 모델 <span class="nt">&lt;input</span> <span class="na">type=</span><span class="s">"text"</span> <span class="na">name=</span><span class="s">"model"</span> <span class="na">value=</span><span class="s">"${model }"</span><span class="nt">&gt;&lt;/label&gt;</span> 
+        <span class="nt">&lt;br&gt;</span>
+        <span class="nt">&lt;label&gt;</span> 가격 <span class="nt">&lt;input</span> <span class="na">type=</span><span class="s">"number"</span> <span class="na">name=</span><span class="s">"price"</span> <span class="na">value=</span><span class="s">"${price }"</span><span class="nt">&gt;&lt;/label&gt;</span> 
+        <span class="nt">&lt;br&gt;</span> 
+        <span class="nt">&lt;label&gt;</span> 브랜드 <span class="nt">&lt;input</span> <span class="na">type=</span><span class="s">"text"</span> <span class="na">name=</span><span class="s">"brand"</span> <span class="na">value=</span><span class="s">"${brand }"</span><span class="nt">&gt;&lt;/label&gt;</span> 
+        <span class="nt">&lt;br&gt;</span> 
+        <span class="nt">&lt;label&gt;</span> 차량 크기 
+          <span class="nt">&lt;select</span> <span class="na">name=</span><span class="s">"size"</span><span class="nt">&gt;</span>
+            <span class="nt">&lt;option</span> <span class="na">value=</span><span class="s">"소형"</span><span class="nt">&gt;</span>소형<span class="nt">&lt;/option&gt;</span>
+            <span class="nt">&lt;option</span> <span class="na">value=</span><span class="s">"중형"</span><span class="nt">&gt;</span>중형<span class="nt">&lt;/option&gt;</span>
+            <span class="nt">&lt;option</span> <span class="na">value=</span><span class="s">"대형"</span><span class="nt">&gt;</span>대형<span class="nt">&lt;/option&gt;</span>
+        <span class="nt">&lt;/select&gt;</span>
+        <span class="nt">&lt;/label&gt;</span> <span class="nt">&lt;br&gt;</span> <span class="nt">&lt;input</span> <span class="na">type=</span><span class="s">"submit"</span> <span class="na">value=</span><span class="s">"수정"</span><span class="nt">&gt;</span> <span class="nt">&lt;br&gt;</span> <span class="nt">&lt;a</span>
+          <span class="na">href=</span><span class="s">"main.do?action=search&amp;number=${number }"</span><span class="nt">&gt;</span>상세 페이지<span class="nt">&lt;/a&gt;</span>
+      <span class="nt">&lt;/fieldset&gt;</span>
+    <span class="nt">&lt;/form&gt;</span>
+  <span class="nt">&lt;/body&gt;</span>
+</code></pre></div></div> <p>차의 경우 차번호는 db의 primary key다. 따라서 수정이 일어나서는 안된다. 값이 수정되지 않도록 html readonly 속성을 줬다. 그러면 해당 input 값은 수정이 되지 않는다.</p> <h3 id="로그인">로그인</h3> <div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">case</span> <span class="s">"login"</span><span class="o">:</span>
+				<span class="nc">String</span> <span class="n">id</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="na">getParameter</span><span class="o">(</span><span class="s">"id"</span><span class="o">);</span>
+				<span class="nc">String</span> <span class="n">password</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="na">getParameter</span><span class="o">(</span><span class="s">"password"</span><span class="o">);</span>
+				<span class="nc">String</span> <span class="n">remember</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="na">getParameter</span><span class="o">(</span><span class="s">"remember"</span><span class="o">);</span>
+				
+				<span class="nc">Member</span> <span class="n">member</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Member</span><span class="o">();</span>
+				<span class="n">member</span><span class="o">.</span><span class="na">setId</span><span class="o">(</span><span class="n">id</span><span class="o">);</span>
+				<span class="n">member</span><span class="o">.</span><span class="na">setPassword</span><span class="o">(</span><span class="n">password</span><span class="o">);</span>
+				
+				<span class="n">member</span> <span class="o">=</span> <span class="n">memberService</span><span class="o">.</span><span class="na">login</span><span class="o">(</span><span class="n">member</span><span class="o">);</span>
+				
+				<span class="k">if</span><span class="o">(</span><span class="n">member</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+					<span class="n">forward</span><span class="o">(</span><span class="n">request</span><span class="o">,</span> <span class="n">response</span><span class="o">,</span> <span class="s">"main.do?action=loginInit"</span><span class="o">);</span>
+				<span class="o">}</span>
+				<span class="k">else</span> <span class="o">{</span>
+					
+					<span class="nc">HttpSession</span> <span class="n">session</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="na">getSession</span><span class="o">(</span><span class="kc">true</span><span class="o">);</span>
+					<span class="n">session</span><span class="o">.</span><span class="na">setAttribute</span><span class="o">(</span><span class="s">"id"</span><span class="o">,</span> <span class="n">id</span><span class="o">);</span>					
+					<span class="n">request</span><span class="o">.</span><span class="na">setAttribute</span><span class="o">(</span><span class="s">"name"</span><span class="o">,</span> <span class="n">member</span><span class="o">.</span><span class="na">getName</span><span class="o">());</span>
+					<span class="n">forward</span><span class="o">(</span><span class="n">request</span><span class="o">,</span> <span class="n">response</span><span class="o">,</span> <span class="s">"index.jsp"</span><span class="o">);</span>
+				
+				<span class="o">}</span>
+				<span class="k">break</span><span class="o">;</span>
+</code></pre></div></div> <p>로그인의 경우 db에 접근하는 부분은 이전과 동일하다. 핵심 부분은 db에서 값을 가져와서 그 이후에 처리하는 부분이다. 디비에 없는 정보라면 member는 <code class="language-plaintext highlighter-rouge">null</code>을 리턴하게 된다. 해당 경우에는 forward를 통해서 다시 로그인 창으로 들어오도록 코드를 작성했다.</p> <p>로그인이 성공적으로 이뤄진 경우에는 세션을 설정하고 request에 이름을 저장해서 forwarding을 시켰다. 로그인 성공시에는 기본 페이지로 돌아가는데 이때 request attribute테이블에 저장된 name값을 읽어서 렌더링을 시킨다.</p> <h3 id="로그인-뷰">로그인 뷰</h3> <p><img width="787" alt="Screen Shot 2024-03-26 at 9 52 06 AM" src="https://github.com/hookim/hookim.github.io/assets/81621620/be919bf9-c965-4f84-b052-73b06522b652"/> 위는 jsp 뷰 페이지다. 로그인에 성공한 경우와 성공하지 않은 경우 다른 페이지를 보여주기 위해서 조건부 렌더링을 쓴 코드이다. <code class="language-plaintext highlighter-rouge">&lt;% if ... %&gt;</code> 태그를 활용하면 안에 자바 코드를 작성할 수 있다. 위 경우는 id라는 키값으로 세션이 설정되지 않았다면 로그인 페이지를 보여주도록 하고 그렇지 않다면 이름 정보와 로그아웃버튼을 보여준다.</p> <p>해당 페이지는 nav.jsp로 index.jsp에서 include하고 있다.</p> <div class="language-html highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;jsp:include</span> <span class="na">page=</span><span class="s">"nav.jsp"</span> <span class="nt">&gt;</span>
+  <span class="nt">&lt;jsp:param</span> <span class="na">name=</span><span class="s">"name"</span> <span class="na">value=</span><span class="s">"${name }"</span> <span class="nt">/&gt;</span>
+<span class="nt">&lt;/jsp:include&gt;</span>
+		
+</code></pre></div></div> <p>위 코드는 index.jsp에 있다. <code class="language-plaintext highlighter-rouge">&lt;jsp:param name ...&gt;</code>이 부분을 통해서 nav.jsp에 값을 전달할 수 있다.</p> <h3 id="페이지가-바뀌는-다양한-방식">페이지가 바뀌는 다양한 방식</h3> <ol> <li>jsp view 페이지에서 action 패러미터를 통해 메인 서블릿으로 접근하는 방법 <div class="language-html highlighter-rouge"><div class="highlight"><pre class="highlight"><code>   <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">"main.do?action=list"</span><span class="nt">&gt;</span>차량 목록 페이지<span class="nt">&lt;/a&gt;</span>
+</code></pre></div> </div> <p>jsp구조에서는 다음과 같은 방식이 권장된다고 한다. 직업 자원을 요청하는 GET요청보다는 서블릿에 맵핑된 url로 요청을 보내 서블릿이 처리하도록 하는 방식이 좀 더 보안에 좋다고 한다. 왜냐하면 내부 구조를 보여주지 않기 때문이다.</p> </li> <li>jsp form 태그를 통해 접근하는 방법 <div class="language-html highlighter-rouge"><div class="highlight"><pre class="highlight"><code> <span class="nt">&lt;form</span> <span class="na">action=</span><span class="s">"./../main.do"</span> <span class="na">method=</span><span class="s">"post"</span><span class="nt">&gt;</span>
+   <span class="nt">&lt;fieldset&gt;</span>
+     <span class="nt">&lt;input</span> <span class="na">type=</span><span class="s">"hidden"</span> <span class="na">name=</span><span class="s">"action"</span> <span class="na">value=</span><span class="s">"regist"</span><span class="nt">&gt;</span> <span class="nt">&lt;br&gt;</span>
+     <span class="nt">&lt;label&gt;</span> 차 번호 <span class="nt">&lt;input</span> <span class="na">type=</span><span class="s">"text"</span> <span class="na">name=</span><span class="s">"number"</span><span class="nt">&gt;&lt;/label&gt;</span> <span class="nt">&lt;br&gt;</span>
+     <span class="nt">&lt;label&gt;</span> 모델 <span class="nt">&lt;input</span> <span class="na">type=</span><span class="s">"text"</span> <span class="na">name=</span><span class="s">"model"</span><span class="nt">&gt;&lt;/label&gt;</span> <span class="nt">&lt;br&gt;</span>
+     <span class="nt">&lt;label&gt;</span> 가격 <span class="nt">&lt;input</span> <span class="na">type=</span><span class="s">"number"</span> <span class="na">name=</span><span class="s">"price"</span><span class="nt">&gt;&lt;/label&gt;</span> <span class="nt">&lt;br&gt;</span>
+     <span class="nt">&lt;label&gt;</span> 브랜드 <span class="nt">&lt;input</span> <span class="na">type=</span><span class="s">"text"</span> <span class="na">name=</span><span class="s">"brand"</span><span class="nt">&gt;&lt;/label&gt;</span> <span class="nt">&lt;br&gt;</span>
+     <span class="nt">&lt;label&gt;</span> 차량 크기 <span class="nt">&lt;select</span> <span class="na">name=</span><span class="s">"size"</span><span class="nt">&gt;</span>
+         <span class="nt">&lt;option</span> <span class="na">value=</span><span class="s">"소형"</span><span class="nt">&gt;</span>소형<span class="nt">&lt;/option&gt;</span>
+         <span class="nt">&lt;option</span> <span class="na">value=</span><span class="s">"중형"</span><span class="nt">&gt;</span>중형<span class="nt">&lt;/option&gt;</span>
+         <span class="nt">&lt;option</span> <span class="na">value=</span><span class="s">"대형"</span><span class="nt">&gt;</span>대형<span class="nt">&lt;/option&gt;</span>
+     <span class="nt">&lt;/select&gt;</span> 
+     <span class="nt">&lt;/label&gt;</span> <span class="nt">&lt;br&gt;</span> <span class="nt">&lt;input</span> <span class="na">type=</span><span class="s">"submit"</span> <span class="na">value=</span><span class="s">"등록"</span><span class="nt">&gt;</span> 
+     <span class="nt">&lt;br&gt;</span> 
+     <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">"./../main.do?action=list"</span><span class="nt">&gt;</span>목록으로<span class="nt">&lt;/a&gt;</span>
+   <span class="nt">&lt;/fieldset&gt;</span>
+ <span class="nt">&lt;/form&gt;</span>
+</code></pre></div> </div> <p>form태그를 활용해서도 요청이 가능하다.</p> </li> <li>JSP 내부에서의 forward <div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code> <span class="kd">private</span> <span class="kt">void</span> <span class="nf">forward</span><span class="o">(</span><span class="nc">HttpServletRequest</span> <span class="n">request</span><span class="o">,</span> <span class="nc">HttpServletResponse</span> <span class="n">response</span><span class="o">,</span> <span class="nc">String</span> <span class="n">path</span><span class="o">)</span> <span class="kd">throws</span> <span class="nc">ServletException</span><span class="o">,</span> <span class="nc">IOException</span> <span class="o">{</span>
+     <span class="nc">RequestDispatcher</span> <span class="n">disp</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="na">getRequestDispatcher</span><span class="o">(</span><span class="n">path</span><span class="o">);</span>
+     <span class="n">disp</span><span class="o">.</span><span class="na">forward</span><span class="o">(</span><span class="n">request</span><span class="o">,</span> <span class="n">response</span><span class="o">);</span>
+   <span class="o">}</span>
+</code></pre></div> </div> <p>1, 2의 경우는 브라우저 url창이 바뀐다 하지만 forward를 사용하면 url이 바뀌지 않는다는 특징이 있다.</p> <h2 id="느낀점">느낀점</h2> </li> <li>MVC 모델은 구현할 때 조금 귀찮은 느낌이 있었다. 하지만 분명 프로젝트가 커지면 굉장히 유용할것 같다는 느낌을 받았다.</li> <li>이제 왜 html과 같은 자원 uri가 아닌데도 페이지가 렌더링이 되고 처리가되는지 알았다. 내부적으로 서블릿의 도움을 받아 동적인 처리가 가능하다는 것을 알게됐고 백엔드 개발의 매력을 느꼈다.</li> <li>jsp는 뭔가 리액트와 비슷한 느낌을 받았다. 물론 server side 렌더링이 되는 거지만 param을 내부로 전달하는 것부터 해서 리액트와 비슷한 느낌을 받았다.</li> </ol>]]></content><author><name></name></author><category term="백엔드"/><summary type="html"><![CDATA[자바 웹프로그래밍의 근간이 되는 서블릿을 통해 MVC 구조를 알아보자]]></summary></entry><entry><title type="html">0/1 knapsack</title><link href="https://hookim.github.io//blog/2024/knapsack-copy/" rel="alternate" type="text/html" title="0/1 knapsack"/><published>2024-02-19T00:18:09+09:00</published><updated>2024-02-19T00:18:09+09:00</updated><id>https://hookim.github.io//blog/2024/knapsack%20copy</id><content type="html" xml:base="https://hookim.github.io//blog/2024/knapsack-copy/"><![CDATA[<h2 id="개요">개요</h2> <p>가방에 물건을 최대한 담으면서 가방에 담긴 물건의 가치를 최대치로 만드는것에 관련된 문제. 물건에는 무게와 가치가 있다. 그리고 가방에는 담을 수 있는 무게의 한계가 있다. 이들을 모두 고려하면서 물건을 선택하는것에 관한 문제이다. 0/1은 물건을 선택하거나 아니거나이기 때문이다. 물건의 부분만을 취할 수 없는 케이스다.</p> <h2 id="brute-force">Brute Force</h2> <p>완전탐색의 방식을 생각해보자면 우선 모든 부분집합을 살펴봐서 가장 최대값을 찾는 방법일 수 있겠다.</p> <div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// 가능한 최대 가치를 리턴</span>
+<span class="kt">int</span> <span class="nf">knapsack</span><span class="o">(</span><span class="n">현재까지의</span> <span class="n">총무게</span><span class="o">,</span> <span class="n">선택할</span> <span class="n">아이템</span> <span class="n">인덱스</span><span class="o">){</span>
+
+<span class="c1">// 만약 현재 선택한 아이템을 포함했을 때 총무게보다 크다면 그 아이템은 선택에서 배재한다.</span>
+	<span class="k">return</span> <span class="nf">knapsack</span><span class="o">(</span><span class="n">현재까지의</span> <span class="n">총무게</span><span class="o">,</span> <span class="n">다음순서의</span> <span class="n">인덱스</span><span class="o">)</span>
+ 
+<span class="c1">// 그게 아니라면 아이템을 선택한 경우와 그렇지 않은 경우중 최대값을 리턴한다. </span>
+	<span class="k">return</span> <span class="n">현재</span> <span class="n">아이템</span> <span class="n">가치</span> <span class="o">+</span> <span class="n">knapsack</span><span class="o">(</span><span class="n">현재까지의</span> <span class="n">총무게</span> <span class="o">+</span> <span class="n">현재아이템</span> <span class="n">무게</span><span class="o">,</span> <span class="n">다음순서의</span> <span class="n">인덱스</span><span class="o">)</span>
+	<span class="n">와</span> <span class="n">kanpsack</span><span class="o">(</span><span class="n">현재까지의</span> <span class="n">총무게</span><span class="o">,</span> <span class="n">다음</span> <span class="n">순서의</span> <span class="n">인덱스</span><span class="o">)</span> <span class="n">중에서</span> <span class="n">더</span> <span class="n">큰</span> <span class="n">값</span> 
+
+<span class="o">}</span>
+</code></pre></div></div> <h2 id="dp--top-down-memoization">DP -Top Down Memoization</h2> <p>재귀를 돌 때 같은 패러미터를 갖는 재귀가 여러번 호출되는 점을 이용한다. 같은 패러미터인 경우에 오버헤드가 상대적으로 큰 함수호출 대신에 미리 저장된 정보를 전달할 수 있다.</p> <div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// 기존의 BruteForce와 일정</span>
+<span class="c1">// 최초 총무게, 아이템인덱스 크기 만큼의 dp 2차원 배열을 만든다. </span>
+
+<span class="c1">// 만약 dp에 이미 값이 들어있다면 그값을 리턴한다.</span>
+	<span class="k">return</span> <span class="n">dp</span><span class="o">[</span><span class="n">현재까지의</span> <span class="n">총무게</span><span class="o">][</span><span class="n">다음순서의</span> <span class="n">인덱스</span><span class="o">]</span>
+
+<span class="c1">// 만약 현재 선택한 아이템이 총무게보다 크다면 그 아이템은 선택에서 배재한다.</span>
+	<span class="k">return</span> <span class="n">dp</span><span class="o">[</span><span class="n">현재까지의</span> <span class="n">총무게</span><span class="o">][</span><span class="n">다음순서의</span> <span class="n">인덱스</span><span class="o">]</span> <span class="o">=</span> <span class="n">knapsack</span><span class="o">(</span><span class="n">현재까지의</span> <span class="n">총무게</span><span class="o">,</span> <span class="n">다음순서의</span> <span class="n">인덱스</span><span class="o">)</span>
+
+<span class="c1">// 그게 아니라면 아이템을 선택한 경우와 그렇지 않은 경우중 최대값을 리턴한다. </span>
+	<span class="k">return</span> <span class="n">dp</span><span class="o">[</span><span class="n">현재까지의</span> <span class="n">총무게</span><span class="o">][</span><span class="n">다음순서의</span> <span class="n">인덱스</span><span class="o">]</span> <span class="o">=</span> <span class="n">현재</span> <span class="n">아이템</span> <span class="n">가치</span> <span class="o">+</span> <span class="n">knapsack</span><span class="o">(</span><span class="n">현재까지의</span> <span class="n">총무게</span> <span class="o">+</span> <span class="n">현재아이템</span> <span class="n">무게</span><span class="o">,</span> <span class="n">다음순서의</span> <span class="n">인덱스</span><span class="o">)</span>
+	<span class="n">와</span> <span class="n">kanpsack</span><span class="o">(</span><span class="n">현재까지의</span> <span class="n">총무게</span><span class="o">,</span> <span class="n">다음</span> <span class="n">순서의</span> <span class="n">인덱스</span><span class="o">)</span> <span class="n">중에서</span> <span class="n">더</span> <span class="n">큰</span> <span class="n">값</span> 
+
+<span class="o">}</span>
+
+</code></pre></div></div> <h2 id="dp---bottom-up">DP - Bottom Up</h2> <p>여기서는 고려하는 인덱스 번호범위, 가방의 가용무게 범위 두 요소를 바탕으로 테이블을 만든다. dp[i][W]는 가방의 가용범위 W이고 아이템을 i번째 까지만 고려했을 때의 최대 이익은 어떻게 되는가를 저장한다. 테이블을 만들때 초반 초기화 부분이 있고 이제 이로부터 시작해서 테이블을 생성해 나가는 파트가 있다.</p> <div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// N는 아이템의 개수(최대번호), W는 가방 무게 한계. 0일때도 고려한다.</span>
+<span class="n">dp</span><span class="o">[</span><span class="mi">0</span> <span class="o">~</span> <span class="n">아이템의</span> <span class="n">최대</span> <span class="n">개수</span><span class="o">][</span><span class="mi">0</span> <span class="o">~</span> <span class="n">가방</span> <span class="n">무게한계</span><span class="o">]</span>
+
+<span class="c1">// *** ~~초기화 작업~~ ***</span>
+<span class="c1">// 아이템을 아무것도 고려하지 않는다면 가치는 전부 0이된다. </span>
+<span class="n">dp</span><span class="o">[</span><span class="mi">0</span><span class="o">][</span><span class="mi">0</span> <span class="o">~</span> <span class="n">가방무게한계</span><span class="o">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+<span class="c1">//아이템을 1개까지만 고려한다면 가방 용적이 해당 아이템 무게보다 커질때부터 담는다.</span>
+<span class="k">if</span><span class="o">(</span><span class="n">현재테이블</span> <span class="n">가방무게한계</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="n">번아이템</span> <span class="n">무게</span><span class="o">)</span> 
+	<span class="n">dp</span><span class="o">[</span><span class="mi">1</span><span class="o">][</span><span class="mi">0</span> <span class="o">~</span> <span class="n">가방무게한계</span><span class="o">]</span> <span class="o">=</span> <span class="mi">1</span><span class="n">번</span> <span class="n">아이템</span> <span class="n">가치</span>
+<span class="c1">// *** ~~초기화 작업 종료~~ ***</span>
+
+<span class="c1">// *** ~~테이블 생성~~ ***</span>
+<span class="c1">// 우선 현재 아이템 무게가 현재 용적보다 크다면 이전 dp 결과를 가져온다.</span>
+<span class="k">if</span><span class="o">(</span><span class="n">현재테이블</span> <span class="n">가방무게한계</span> <span class="o">&lt;</span> <span class="n">현재</span> <span class="n">아이템</span> <span class="n">무게</span><span class="o">)</span> 
+	<span class="n">dp</span><span class="o">[</span><span class="n">현재아이템</span><span class="o">][</span><span class="mi">0</span> <span class="o">~</span> <span class="n">가방무게한계</span><span class="o">]</span> <span class="o">=</span> <span class="n">dp</span><span class="o">[</span><span class="n">현재아이템</span><span class="o">-</span><span class="mi">1</span><span class="o">][</span><span class="mi">0</span> <span class="o">~</span> <span class="n">가방무게</span> <span class="n">한계</span><span class="o">]</span>
+<span class="c1">// 그게 아니라면 비교한다. 이 아이템을 선택하지 않는경우 와 이 현재 용량에서 현재 아이템의 무게를 뺀 용량이었을 때의 최대 가치 + 현재아이템의 무게를 비교해서 더 큰값을 집어넣는다. </span>
+<span class="n">dp</span><span class="o">[</span><span class="n">현재아이템</span><span class="o">][</span><span class="n">현재</span> <span class="n">가방무게한계</span><span class="o">]</span> 
+<span class="o">=</span> <span class="n">max</span><span class="o">(</span><span class="n">dp</span><span class="o">[</span><span class="n">현재아이템</span><span class="o">-</span><span class="mi">1</span><span class="o">][</span><span class="n">현재</span> <span class="n">가방무게한계</span><span class="o">],</span> <span class="n">dp</span><span class="o">[</span><span class="n">현재아이템</span><span class="o">][</span><span class="n">현재</span> <span class="n">가방무게한계</span> <span class="o">-</span> <span class="n">현재</span> <span class="n">아이템</span> <span class="n">무게</span><span class="o">]</span> <span class="o">+</span> <span class="n">현재</span> <span class="n">아이템의</span> <span class="n">가치</span><span class="o">)</span>
+
+<span class="n">dp</span><span class="o">[</span><span class="no">N</span><span class="o">][</span><span class="no">W</span><span class="o">]</span> <span class="c1">//정답</span>
+</code></pre></div></div> <p>여기서 조금 생소한 포인트는 가방 무게 한계에서 현재 아이템무게를 뺐을때의 경우를 참조하는 거다. 현재 아이템을 집어넣기 위해서 빈 공간을 찾아내는 느낌으로 이해하면 된다.</p> <h2 id="참고">참고</h2> <p><a href="https://www.geeksforgeeks.org/0-1-knapsack-problem-dp-10/">0/1 Knapsack Problem - GeeksforGeeks</a></p> <p><a href="https://loctv.wordpress.com/2019/12/14/knapsack-top-down-memoization-bottom-up/">Knapsack: Top-down, Memoization &amp; Bottom-up</a></p>]]></content><author><name></name></author><category term="알고리즘"/><summary type="html"><![CDATA[0/1 knapsack을 푸는 여러 방식]]></summary></entry><entry><title type="html">Next Permutation</title><link href="https://hookim.github.io//blog/2024/algorithm-next-permutation/" rel="alternate" type="text/html" title="Next Permutation"/><published>2024-02-14T01:05:10+09:00</published><updated>2024-02-14T01:05:10+09:00</updated><id>https://hookim.github.io//blog/2024/algorithm-next-permutation</id><content type="html" xml:base="https://hookim.github.io//blog/2024/algorithm-next-permutation/"><![CDATA[<h2 id="개요">개요</h2> <p>순열을 풀 때 직관적으로 나이브하게 생각한다면 재귀를 사용해서 풀 수 있다. 그런데 해당 방식은, 예를들어, N개의 순열을 만드는 경우라면 O(N! * N)의 시간복잡도가… 엄청나다. <code class="language-plaintext highlighter-rouge">N!</code>개의 모든 가능한 경우의 수에 대해서 N개를 선택한 경우 길이가 N인 선택 배열을 순회하면서 선택한 순열을 생각하는것! 그러나 O(N)으로 순열을 풀 수 있는 매우 혁신적인 방법이 있다고 한다.</p> <h2 id="설명">설명</h2> <ol> <li> <p>기존의 방식</p> <div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code> <span class="n">perm</span><span class="p">(</span><span class="kt">int</span> <span class="n">pick</span><span class="p">){</span>
+ 	<span class="k">if</span><span class="p">(</span><span class="n">pick</span> <span class="o">==</span> <span class="n">N</span><span class="p">){</span>
+ 		<span class="c1">// 보통 선택의 여부는 boolean 배열을 사용하니까. 이를 전부 순회하면서 체크하기 여기서 O(N)</span>
+ 	<span class="p">}</span>
+    	
+ 	<span class="c1">// 이 모든게 재귀를 돌면서 N!개의 가지치기가 일어난다.</span>
+ 	<span class="k">for</span><span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">all_possible_numbers</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">){</span>
+ 		<span class="k">if</span><span class="p">(</span><span class="n">pick</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">continue</span><span class="p">;</span>
+    
+ 		<span class="n">pick</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="nb">true</span><span class="p">;</span>
+ 		<span class="n">perm</span><span class="p">(</span><span class="n">pick</span><span class="o">+</span><span class="mi">1</span><span class="p">);</span>
+ 		<span class="n">pick</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="nb">false</span><span class="p">;</span> 
+ 	<span class="p">}</span>
+ <span class="p">}</span>
+</code></pre></div> </div> <p>이런식으로 재귀를 활용해서! 쉽지만 느리다.</p> </li> <li> <p>Next Permutation 방식</p> <ol> <li>NextPermutation을 사용하면 순서대로 다음 순열을 탐색하게 된다. ex) 123→ 132 → 213 → 231 → …</li> <li>순열을 거꾸로 봤을 때 뒷부분에서부터 차례로 증가하거나 같은 부분을 찾는다. ex) 5438762 여기서 거꾸로 봤을 때 2 &lt; 6 &lt; 7 &lt; 8이 된다. 그리고 3에서 그 패턴이 끊긴다. 이를 pivot이라고 부른다.</li> <li>찾은 패턴에서 pivot보다 값이 큰 가장 오른쪽 부분을 찾아 swap한다. ex) 543 8762 → 546 8732</li> <li>그리고 해당 패턴의 구간을 뒤집어 버린다. ex) 546 2378</li> <li>만약에 모든 순열이 전부 역순이라면 순열의 맨 마지막에 왔다는 뜻이다. 그렇기 때문에 따로 플래그를 둬서 종료시킨다.</li> </ol> <div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code> <span class="kt">bool</span> <span class="nf">nextPermutation</span><span class="p">(</span><span class="kt">int</span><span class="p">[]</span> <span class="n">arr</span><span class="p">){</span>
+ 	<span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="n">arr</span><span class="p">.</span><span class="n">size</span><span class="p">()</span><span class="o">-</span><span class="mi">1</span><span class="p">;</span> <span class="c1">// 뒷부분에서부터 시작 </span>
+ 	<span class="kt">int</span> <span class="n">j</span> <span class="o">=</span> <span class="n">i</span><span class="p">;</span>
+    	
+ 	<span class="k">while</span><span class="p">(</span><span class="n">i</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="n">arr</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">arr</span><span class="p">[</span><span class="n">i</span><span class="p">]){</span> <span class="c1">// 패턴찾기</span>
+ 		<span class="n">i</span><span class="o">--</span><span class="p">;</span>
+ 	<span class="p">}</span> 
+ 	<span class="k">if</span><span class="p">(</span><span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="c1">// 만약 주어진 모든 순열이 전부 역순이라면? 마지막이기 때문에 플래그 표시</span>
+ 		<span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+ 	<span class="k">while</span><span class="p">(</span><span class="n">arr</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">arr</span><span class="p">[</span><span class="n">j</span><span class="p">]){</span> <span class="c1">// pivot보다 큰 수를 패턴안에서 찾기 </span>
+ 		<span class="n">j</span><span class="o">--</span><span class="p">;</span>
+ 	<span class="p">}</span> 
+ 	<span class="n">swap</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">j</span><span class="p">);</span> <span class="c1">// 두 수를 교체하기 </span>
+ 	<span class="n">j</span> <span class="o">=</span> <span class="n">arr</span><span class="p">.</span><span class="n">size</span><span class="p">()</span><span class="o">-</span><span class="mi">1</span><span class="p">;</span> 
+    
+ 	<span class="k">while</span><span class="p">(</span><span class="n">i</span> <span class="o">&lt;</span> <span class="n">j</span><span class="p">){</span> <span class="c1">// 패턴부분을 전부 뒤집기 </span>
+ 		<span class="n">swap</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">i</span><span class="o">++</span><span class="p">,</span> <span class="n">j</span><span class="o">--</span><span class="p">);</span>
+ 	<span class="p">}</span>
+ 	<span class="k">return</span> <span class="nb">true</span><span class="p">;</span>
+ <span class="p">}</span>
+</code></pre></div> </div> </li> </ol> <h2 id="참고">참고</h2> <p><a href="https://www.geeksforgeeks.org/next-permutation/">Next Permutation - GeeksforGeeks</a></p>]]></content><author><name></name></author><category term="알고리즘"/><summary type="html"><![CDATA[순열을 효율적으로 푸는 방법!]]></summary></entry><entry><title type="html">햄버거 다이어트 문제풀이</title><link href="https://hookim.github.io//blog/2024/first-post/" rel="alternate" type="text/html" title="햄버거 다이어트 문제풀이"/><published>2024-02-11T21:12:39+09:00</published><updated>2024-02-11T21:12:39+09:00</updated><id>https://hookim.github.io//blog/2024/first-post</id><content type="html" xml:base="https://hookim.github.io//blog/2024/first-post/"><![CDATA[<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="nn">java.io.BufferedReader</span><span class="o">;</span>
+<span class="kn">import</span> <span class="nn">java.io.IOException</span><span class="o">;</span>
+<span class="kn">import</span> <span class="nn">java.io.InputStreamReader</span><span class="o">;</span>
+<span class="kn">import</span> <span class="nn">java.util.StringTokenizer</span><span class="o">;</span>
+
+<span class="cm">/**
+ * 이것도 재귀를 돌면서 햄버거 선택, 미선택 두개의 가지치기로 나눠가면서 완전탐색 느낌으로 간다.
+ * 그런데 재료를 선택하는 방법 말고 재료를 빼는 방법을 선택한다.
+ * 그래서 빼는 흐름이면 그냥 재귀 호출하고 거기서 칼로리 조건보다 이하가 됐는지 확인하기만 하면 된다.
+ * 이 경우 일단 탈출조건(칼로리 조건이하)가 됐다면 그 이후는 더 살펴볼 필요가 없어진다. 이후 탐색에서는 점수가 줄어들거나 유지될 뿐이기 때문이다.
+ */</span>
+
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">실습023_SWEA_5215_햄버거다이어트</span> <span class="o">{</span>
+    <span class="kd">static</span> <span class="kt">int</span> <span class="no">T</span><span class="o">,</span> <span class="no">N</span><span class="o">,</span> <span class="no">L</span><span class="o">,</span> <span class="n">tempAns</span><span class="o">;</span>
+    <span class="kd">static</span> <span class="kt">int</span><span class="o">[]</span> <span class="n">tastes</span> <span class="o">=</span> <span class="k">new</span> <span class="kt">int</span><span class="o">[</span><span class="mi">20</span><span class="o">];</span>
+    <span class="kd">static</span> <span class="kt">int</span><span class="o">[]</span> <span class="n">calories</span> <span class="o">=</span> <span class="k">new</span> <span class="kt">int</span><span class="o">[</span><span class="mi">20</span><span class="o">];</span>
+    <span class="kd">static</span> <span class="nc">StringBuilder</span> <span class="n">ans</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">StringBuilder</span><span class="o">(</span><span class="s">""</span><span class="o">);</span>
+    <span class="kd">public</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">search</span><span class="o">(</span><span class="kt">int</span> <span class="n">start</span><span class="o">,</span> <span class="kt">int</span> <span class="n">taste</span><span class="o">,</span> <span class="kt">int</span> <span class="n">calrory</span><span class="o">){</span>
+        <span class="k">if</span><span class="o">(</span><span class="n">calrory</span> <span class="o">&lt;=</span> <span class="no">L</span><span class="o">){</span> <span class="c1">// 칼로리가 특정 조건 이하로 됐을 때</span>
+            <span class="k">if</span><span class="o">(</span><span class="n">tempAns</span> <span class="o">&lt;</span> <span class="n">taste</span><span class="o">)</span> <span class="c1">// 업데이트</span>
+                <span class="n">tempAns</span> <span class="o">=</span> <span class="n">taste</span><span class="o">;</span>
+            <span class="k">return</span><span class="o">;</span>
+        <span class="o">}</span>
+
+        <span class="k">for</span><span class="o">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="n">start</span><span class="o">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="no">N</span><span class="o">;</span> <span class="n">i</span><span class="o">++){</span> <span class="c1">// 다음 재료 탐색</span>
+            <span class="n">search</span><span class="o">(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="o">,</span> <span class="n">taste</span> <span class="o">-</span> <span class="n">tastes</span><span class="o">[</span><span class="n">i</span><span class="o">],</span> <span class="n">calrory</span> <span class="o">-</span> <span class="n">calories</span><span class="o">[</span><span class="n">i</span><span class="o">]);</span> <span class="c1">// 현재 재료를 뺀다.</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+    <span class="kd">public</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">main</span><span class="o">(</span><span class="nc">String</span><span class="o">[]</span> <span class="n">args</span><span class="o">)</span> <span class="kd">throws</span> <span class="nc">IOException</span> <span class="o">{</span>
+        <span class="nc">BufferedReader</span> <span class="n">br</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">BufferedReader</span><span class="o">(</span><span class="k">new</span> <span class="nc">InputStreamReader</span><span class="o">(</span><span class="nc">System</span><span class="o">.</span><span class="na">in</span><span class="o">));</span> <span class="c1">// 빠른입력</span>
+        <span class="no">T</span> <span class="o">=</span> <span class="nc">Integer</span><span class="o">.</span><span class="na">parseInt</span><span class="o">(</span><span class="n">br</span><span class="o">.</span><span class="na">readLine</span><span class="o">());</span>
+        <span class="k">for</span><span class="o">(</span><span class="kt">int</span> <span class="n">t</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">;</span> <span class="n">t</span> <span class="o">&lt;=</span> <span class="no">T</span><span class="o">;</span> <span class="n">t</span><span class="o">++){</span>
+            <span class="nc">StringTokenizer</span> <span class="n">st</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">StringTokenizer</span><span class="o">(</span><span class="n">br</span><span class="o">.</span><span class="na">readLine</span><span class="o">());</span>
+            <span class="no">N</span> <span class="o">=</span> <span class="nc">Integer</span><span class="o">.</span><span class="na">parseInt</span><span class="o">(</span><span class="n">st</span><span class="o">.</span><span class="na">nextToken</span><span class="o">());</span>
+            <span class="no">L</span> <span class="o">=</span> <span class="nc">Integer</span><span class="o">.</span><span class="na">parseInt</span><span class="o">(</span><span class="n">st</span><span class="o">.</span><span class="na">nextToken</span><span class="o">());</span>
+            <span class="kt">int</span> <span class="n">totalTaste</span> <span class="o">=</span> <span class="mi">0</span><span class="o">,</span> <span class="n">totalCalories</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span>
+            <span class="k">for</span><span class="o">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="no">N</span> <span class="o">;</span> <span class="n">i</span><span class="o">++){</span>
+                <span class="n">st</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">StringTokenizer</span><span class="o">(</span><span class="n">br</span><span class="o">.</span><span class="na">readLine</span><span class="o">());</span>
+                <span class="n">tastes</span><span class="o">[</span><span class="n">i</span><span class="o">]</span> <span class="o">=</span> <span class="nc">Integer</span><span class="o">.</span><span class="na">parseInt</span><span class="o">(</span><span class="n">st</span><span class="o">.</span><span class="na">nextToken</span><span class="o">());</span>
+                <span class="n">calories</span><span class="o">[</span><span class="n">i</span><span class="o">]</span> <span class="o">=</span> <span class="nc">Integer</span><span class="o">.</span><span class="na">parseInt</span><span class="o">(</span><span class="n">st</span><span class="o">.</span><span class="na">nextToken</span><span class="o">());</span>
+                <span class="n">totalTaste</span> <span class="o">+=</span> <span class="n">tastes</span><span class="o">[</span><span class="n">i</span><span class="o">];</span>
+                <span class="n">totalCalories</span> <span class="o">+=</span> <span class="n">calories</span><span class="o">[</span><span class="n">i</span><span class="o">];</span>
+            <span class="o">}</span>
+            <span class="n">tempAns</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span>
+            <span class="n">search</span><span class="o">(</span><span class="mi">0</span><span class="o">,</span> <span class="n">totalTaste</span><span class="o">,</span> <span class="n">totalCalories</span><span class="o">);</span>
+            <span class="n">ans</span><span class="o">.</span><span class="na">append</span><span class="o">(</span><span class="s">"#"</span><span class="o">).</span><span class="na">append</span><span class="o">(</span><span class="n">t</span><span class="o">).</span><span class="na">append</span><span class="o">(</span><span class="s">" "</span><span class="o">).</span><span class="na">append</span><span class="o">(</span><span class="n">tempAns</span><span class="o">).</span><span class="na">append</span><span class="o">(</span><span class="s">"\n"</span><span class="o">);</span>
+        <span class="o">}</span>
+        <span class="nc">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="n">ans</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div></div>]]></content><author><name></name></author><category term="알고리즘"/><summary type="html"><![CDATA[실습 과제]]></summary></entry></feed>
